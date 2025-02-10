@@ -1,0 +1,279 @@
+// import React, { useEffect } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+// import { addtocart, getProductData } from './slice/ProductSlice';
+
+// const ListingProductDetails = () => {
+//     const { products } = useSelector((state) => state.products);
+//     const dispatch = useDispatch();
+
+//     useEffect(() => {
+//         dispatch(getProductData());
+//     }, []);
+
+//     // console.log("/*/*", products);
+
+//     const addcart = (p) => {
+//         dispatch(addtocart(p))
+//     }
+
+//     return (
+//         <div className='productsidebar'>
+//             <div className='prod-list'>
+//                 <h2>ProductList</h2>
+//                 {products.map((item) => (
+//                     <div key={item.id} className='proddetails'>
+//                         <p>name : {item.productname}</p>
+//                         <p>price : {item.price} <span className='discount'>({item.pdiscount}%)</span></p>
+
+//                         <div>
+//                             <button type='button'> + </button> 1 <button type='button'> - </button>
+//                         </div>
+//                         <div className='btn-cart'>
+//                             <button onClick={() => addcart(item.id)}>Add to cart 🛒</button>
+//                         </div>
+//                     </div>
+//                 ))}
+//             </div>
+//         </div>
+//     );
+// }
+
+// export default ListingProductDetails;
+
+
+
+
+
+
+
+    const val = yup.object({
+      pdiscount: yup.number()
+        .when('selectedDropdown', {
+          is: 'Product Discount',
+          then: yup.number().required("Product discount is required").min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+          otherwise: yup.number().nullable(),
+        }),
+      odiscount: yup.number()
+        .when('selectedDropdown', {
+          is: 'Order Discount',
+          then: yup.number().required("Order discount is required").min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+          otherwise: yup.number().nullable(),
+        }),
+      total: yup.number()
+        .when('selectedDropdown', {
+          is: 'Order Discount',
+          then: yup.number().required("Total amount is required").min(0, "Total must be at least 0"),
+          otherwise: yup.number().nullable(),
+        }),
+    });
+  
+
+
+
+
+
+
+
+---------------------------------------------
+
+
+
+ // pdiscount: yup.number().required("Product discount is required").min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+    // odiscount: yup.number().required("Order discount is required").min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+    // total: yup.number().required("Total amount is required").min(0, "Total must be at least 0"),
+
+
+-------------------------------------------------
+
+  const formik = useFormik({
+    enableReinitialize: true,
+    initialValues: data,
+    validationSchema: val,
+    onSubmit: async (values, { resetForm }) => {
+      dispatch(updateProductDisc(values));
+      console.log("-*-* values :", values);
+      resetForm();
+
+      const updatedProducts = products.filter(item => checkedProducts.includes(item.id))
+        .map(item => ({ ...item, pdiscount: values.pdiscount }));
+
+      try {
+        await Promise.all(updatedProducts.map(product =>
+          axios.patch(`http://localhost:3000/products/${product.id}`, product)
+        ));
+        console.log("Discounts updated", updatedProducts);
+      } catch (error) {
+        console.error("Error :", error);
+      }
+    },
+  });
+  // console.log(products);
+
+  const handleAddDropdown = () => {
+    dispatch(adddropdown());
+  };
+
+  const checkBox = (id) => {
+    setCheckedProducts(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+
+
+
+--------------------------------------------------------
+import React, { useEffect, useState } from 'react';
+import "../../Style/ProductOrder/Settingbar.css";
+import { useDispatch, useSelector } from 'react-redux';
+import * as yup from "yup";
+import { useFormik } from 'formik';
+import { getProductData, updatedropdown, adddropdown, removedropdown } from './slice/ProductSlice';
+import FetchAxiosData from './FetchAxiosData';
+
+const SettingSidebar = () => {
+  const { products, dropdowns } = useSelector((state) => state.products);
+  const dispatch = useDispatch();
+  const [checkedProducts, setCheckedProducts] = useState([]);
+  const [selectedDropdown, setSelectedDropdown] = useState([]);
+
+  useEffect(() => {
+    if (!products || products.length === 0) {
+      dispatch(getProductData());
+    }
+  }, []);
+
+  const val = yup.object().shape({
+    selectedDropdown: yup.string().required(),
+    discounts: yup.array().of(yup.object().shape({
+      pdiscount: yup.number()
+        .when("selectedDropdown", {
+          is: (val) => val === "Product Discount",
+          // is: (val) => val !== "" && val!== null,
+          then: yup.number().min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+          otherwise: yup.number(),
+        }),
+      odiscount: yup.number()
+        .when("selectedDropdown", {
+          is: (val) => val === "Order Discount",
+          then: yup.number().min(0, "Discount must be at least 0").max(100, "Discount cannot exceed 100"),
+          otherwise: yup.number(),
+        }),
+      total: yup.number()
+        .when("selectedDropdown", {
+          is: (val) => val === "Order Discount",
+          then: yup.number().min(0, "Total must be at least 0"),
+          otherwise: yup.number(),
+        }),
+    })),
+  });
+
+  const formik = useFormik({
+    enableReinitialize: true,
+    initialValues: {
+      discounts: [],
+      selectedDropdown: selectedDropdown,
+    },
+    validationSchema: val,
+    onSubmit: async (values) => {
+      // console.log(values.pdiscount);
+
+      const updatedProducts = products.filter(item => checkedProducts.includes(item.id))
+        .map((item, i) => ({ ...item, discounts: [{ pdiscount: values.discounts[i]?.pdiscount || 0, odiscount: values.discounts[i]?.odiscount || 0 }] }));
+      // console.log(values.selectedDropdown);
+      // console.log(products);
+      // console.log(checkedProducts);
+
+      try {
+        await Promise.all(updatedProducts.map(p => {
+          return FetchAxiosData("patch", `http://localhost:3200/products/${p.id}`, { discounts: [{ pdiscount: p.discounts.pdiscount, odiscount: p.discounts.odiscount }] });
+        }));
+      } catch (error) {
+        console.error("Error :", error);
+      }
+      // console.log(values);
+      // resetForm();
+    },
+  });
+
+  console.log(formik.values);
+
+  const handleAddDropdown = () => {
+    dispatch(adddropdown());
+  };
+
+  const checkBox = (id) => {
+    setCheckedProducts(i => i.includes(id) ? i.filter(item => item !== id) : [...i, id]);
+  };
+
+  return (
+    <div className='settingSidebar'>
+      <div className='main-drop-container'>
+        {dropdowns.map((d) => (
+          <div key={d.id}>
+            {console.log(d)}
+            <div className='dropdownmenu'>
+              <div className='inner-style-dd'>
+                <select onChange={(e, values) => {
+                  setSelectedDropdown(e.target.value);
+                  dispatch(updatedropdown({ id: d.id, value: e.target.value }));
+                }}
+                  onBlur={formik.handleBlur}
+                  name='selectedDropdown'
+                // className={formik.errors.selectedDropdown && formik.touched.selectedDropdown ? 'dd.err' : 'dd-in'}
+                >
+                  <option value="">select...</option>
+                  <option value="Product Discount">Product Discount</option>
+                  <option value="Order Discount">Order Discount</option>
+                </select>
+                <button className='removedropdown' onClick={() => dispatch(removedropdown(d.id))}>❌</button>
+              </div>
+
+              {d.value === "Product Discount" && (
+                <div className='productlisting'>
+                  <h3>Product List</h3>
+                  {products.map((item) => (
+                    <div key={item.id} className='pdetails'>
+                      <input type='checkbox' onChange={() => checkBox(item.id)} />
+                      <p>Name: {item.productname}</p>
+                      <p>Price: {item.price}</p>
+                    </div>
+
+
+                  ))}
+                  <form className='formProductorder' onSubmit={formik.handleSubmit}>
+                    <input name={`discounts.${0}.pdiscount`} type='number' placeholder='Enter discount (%)' onChange={formik.handleChange} onBlur={formik.handleBlur} value={formik.values.discounts[0]?.pdiscount || ""} />
+                    {formik.touched.discounts?.[0]?.pdiscount && formik.errors.discounts?.[0]?.pdiscount ? (<div className='error'>{formik.errors.discounts[0].pdiscount}</div>) : null}
+                  </form>
+                </div>
+              )}
+
+              {d.value === "Order Discount" && (
+                <div>
+                  <h3>Order List</h3>
+                  <div className='productlisting'>
+                    <form className='formProductorder' onSubmit={formik.handleSubmit}>
+                      <input name={`discounts.${0}.total`} type='number' placeholder='Enter total amount' onChange={formik.handleChange} onBlur={formik.handleBlur} value={formik.values.discounts[0]?.total || ""} />
+                      {formik.touched.discounts?.[0]?.total && formik.errors.discounts?.[0]?.total ? (<div className='error'>{formik.errors.discounts[0].total}</div>) : null}
+
+                      <input name={`discounts.${0}.odiscount`} type='number' placeholder='Enter discount (%)' onChange={formik.handleChange} onBlur={formik.handleBlur} value={formik.values.discounts[0]?.odiscount || ""} />
+                      {formik.touched.discounts?.[0]?.odiscount && formik.errors.discounts?.[0]?.odiscount ? (<div className='error'>{formik.errors.discounts[0].odiscount}</div>) : null}
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div className='btn-add-save'>
+          <button type='button' onClick={handleAddDropdown}>Add</button>
+          <button type='submit' onClick={formik.handleSubmit}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default SettingSidebar;
